@@ -114,7 +114,7 @@ static void run_transop_benchmark (const char *op_name, n2n_trans_op_t *op_fn, n
                      pktbuf+nw, N2N_PKT_BUF_SIZE-nw,
                      PKT_CONTENT, sizeof(PKT_CONTENT), mac_buf);
 
-    printf("%s: output size = 0x%" PRIx64 "\n", op_name, nw);
+    printf("%s: output size = 0x%" PRIx8 "\n", op_name, nw);
     fhexdump(0, pktbuf, nw, stdout);
 
     // decrpytion
@@ -124,7 +124,7 @@ static void run_transop_benchmark (const char *op_name, n2n_trans_op_t *op_fn, n
     decode_PACKET( &pkt, &cmn, pktbuf, &rem, &idx );
     op_fn->rev(op_fn, decodebuf, sizeof(decodebuf), pktbuf+idx, rem, 0);
     
-    printf("%s: decodefuf size = 0x%" PRIx64 "\n", op_name, rem);
+    printf("%s: decodefuf size = 0x%" PRIx8 "\n", op_name, rem);
     fhexdump(0, decodebuf, rem, stdout);
 
     if(memcmp(decodebuf, PKT_CONTENT, sizeof(PKT_CONTENT)) != 0) {
