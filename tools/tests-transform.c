@@ -123,6 +123,9 @@ static void run_transop_benchmark (const char *op_name, n2n_trans_op_t *op_fn, n
     decode_common( &cmn, pktbuf, &rem, &idx);
     decode_PACKET( &pkt, &cmn, pktbuf, &rem, &idx );
     op_fn->rev(op_fn, decodebuf, sizeof(decodebuf), pktbuf+idx, rem, 0);
+    
+    printf("%s: decodefuf size = 0x%" PRIx64 "\n", op_name, rem);
+    fhexdump(0, decodebuf, rem, stdout);
 
     if(memcmp(decodebuf, PKT_CONTENT, sizeof(PKT_CONTENT)) != 0) {
         fprintf(stderr, "%s: round-trip buffer mismatch\n", op_name);
