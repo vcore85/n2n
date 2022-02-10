@@ -66,7 +66,7 @@ int main (int argc, char * argv[]) {
     char *test_name = "environment";
     printf("%s: community_name = \"%s\"\n", test_name, conf.community_name);
     printf("%s: encrypt_key = \"%s\"\n", test_name, conf.encrypt_key);
-    printf("%s: input size = 0x%" PRIx64 "\n", test_name, sizeof(PKT_CONTENT));
+    printf("%s: input size = 0x%" PRIx8 "\n", test_name, sizeof(PKT_CONTENT));
     fhexdump(0, PKT_CONTENT, sizeof(PKT_CONTENT), stdout);
     printf("\n");
 
