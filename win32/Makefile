@@ -2,7 +2,7 @@
 # This is not a standalone makefile, it must be called from the toplevel
 # makefile to inherit the correct environment
 
-CFLAGS+=-I../include
+CFLAGS+=-I../include -I.
 LDFLAGS+=-L..
 
 .PHONY: all clean install

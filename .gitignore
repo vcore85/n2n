@@ -1,10 +1,15 @@
 *.o
 *.a
 *.gz
+*.exe
 configure
-config.*
-/Makefile
-tools/Makefile
+config.log
+config.mak
+config.rpath
+config.status
+include/config.h
+include/config.h.in
+tools/config.mak
 autom4te.cache
 edge
 example_edge_embed_quick_edge_init
@@ -14,10 +19,12 @@ supernode
 tools/n2n-benchmark
 tools/n2n-decode
 tools/n2n-keygen
+tools/n2n-portfwd
+tools/n2n-route
 build
 .idea
 .vscode
-cmake-build-default
+.vs
 packages/debian/debian/changelog
 packages/debian/debian/control
 packages/debian/debian/files
@@ -28,9 +35,10 @@ packages/etc/systemd/system/edge@.service
 packages/etc/systemd/system/supernode.service
 *dSYM*
 
-cmake-build-*/
+__pycache__
 
 # Binaries built to run tests
+tools/tests-auth
 tools/tests-compress
 tools/tests-elliptic
 tools/tests-hashing
@@ -50,3 +58,15 @@ coverage/
 *.indent
 *.unc-backup.md5~
 *.unc-backup~
+
+# Empty files created by the openwrt build
+/.built
+/.built_check
+/.configured_*
+/.prepared
+/.quilt_checked
+/.source_dir
+/ABOUT-NLS
+/AUTHORS
+/ChangeLog
+/NEWS

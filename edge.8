@@ -109,11 +109,6 @@ defaults to load-based selection strategy if not provided.
 \fB\-\-select-mac\fR
 select supernode by MAC address if several to choose from (federation),
 lowest MAC address first.
-.TP
-\fB\-\-no-port-forwarding\fR
-disables the default behavior of trying to have the edge's port forwarded
-through a router eventually supporting it (only if compiled with miniupnp
-and/or natpmp library support).
 .SH TAP DEVICE AND OVERLAY NETWORK CONFIGURATION
 .TP
 \fB\-a \fR[\fImode\fR]<\fIip\fR>[\fI/n\fR]
@@ -137,7 +132,8 @@ specify n2n MTU of TAP interface, default 1290
 \fB\-r\fR
 enable IP packet forwarding/routing through the n2n virtual LAN. Without this
 option, IP packets arriving over n2n are dropped if not for the -a <addr> (or
-DHCP assigned) IP address of the edge interface.
+DHCP assigned) IP address of the edge interface. This option is also required
+to allow n2n device being used in network bridging, e.g. with brctl.
 .TP
 \fB\-E\fR
 accept packets destined for multicast ethernet MAC addresses. These addresses
@@ -203,9 +199,8 @@ access to JSON API at the management port.
 \fB\-v\fR, \fB\-\-verbose\fR
 make more verbose, repeat as required
 .TP
-\fB\-n \fR<\fIcidr:gateway\fR>
-route an IPv4 network via the gateway, use 0.0.0.0/0 for
-the default gateway, can be set multiple times
+\fB\-V\fR
+make less verbose, repeat as required
 .TP
 \fB\-u \fR<\fIUID\fR>, \fB\-\-euid\fR=<\fIUID\fR>
 numeric user ID to use when privileges are dropped

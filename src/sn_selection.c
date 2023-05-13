@@ -1,5 +1,5 @@
 /**
- * (C) 2007-21 - ntop.org and contributors
+ * (C) 2007-22 - ntop.org and contributors
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -166,7 +166,7 @@ static int sn_selection_criterion_sort (peer_info_t *a, peer_info_t *b) {
     if(a->selection_criterion > b->selection_criterion)
         ret = 1;
     else if(a->selection_criterion < b->selection_criterion)
-        ret = -2;
+        ret = -1;
 
     return ret;
 }

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Fix Checkout
@@ -25,12 +25,34 @@ jobs:
           ./configure
           make test
 
+  smoketest_all_opts:
+    name: Smoke test With all options turned on
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Fix Checkout
+        run: |
+          git fetch --force --tags
+
+      - name: Install libraries needed for all options turned on
+        run: |
+          sudo apt-get install -y libminiupnpc-dev libnatpmp-dev libpcap-dev libcap-dev
+
+      - name: Run minimal test set
+        run: |
+          ./autogen.sh
+          ./configure --enable-pthread --enable-miniupnp --enable-natpmp --enable-cap --enable-pcap CFLAGS="-O3 -DN2N_OPTION_USE_PORTMAPPING"
+          make test
+
   lint:
     name: Code syntax
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Fix Checkout
@@ -52,8 +74,54 @@ jobs:
         run: |
           make lint
 
+  analyse:
+    name: Code Analysers
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        flags:
+          - -fsanitize=address -static-libasan
+          - -fsanitize=undefined -static-libubsan
+
+          # This option results in timeouts sending RPC requests during the
+          # test_integration_supernode.sh test when running in github actions.
+          # Disable it until more investigation can be done.
+          # - -fsanitize=leak
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Fix Checkout
+        run: |
+          git fetch --force --tags
+
+      - name: Make the makefiles
+        run: |
+          ./autogen.sh
+
+          export CFLAGS="${{ matrix.flags }}"
+          export LDFLAGS="${{ matrix.flags }}"
+          ./configure
+
+      - name: Install essential
+        run: |
+          sudo apt update
+          make build-dep
+
+      - name: Run the analysis
+        run: |
+          make test
+
+      - if: ${{ failure() }}
+        name: Upload tests output
+        uses: actions/upload-artifact@v3
+        with:
+          name: "analysis${{ matrix.flags }}"
+          path: tests
+
   test_linux:
-    needs: smoketest
     name: Test Linux
     runs-on: ${{ matrix.os }}
     strategy:
@@ -61,10 +129,10 @@ jobs:
       matrix:
         os:
           - ubuntu-20.04
-          - ubuntu-18.04
+          - ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Fix Checkout
@@ -91,20 +159,20 @@ jobs:
           ./configure
         shell: bash
 
-      - name: Run embedded tests
-        run: make test
+      - name: Run embedded unit tests
+        run: make test.units
         shell: bash
 
-      - if: ${{ always() }}
+      - if: ${{ failure() }}
         name: Move test outputs to an arch specific location
         shell: bash
         run: |
           mkdir -p tests/${{ matrix.os }}
           mv tests/*.out tests/${{ matrix.os }}
 
-      - if: ${{ always() }}
+      - if: ${{ failure() }}
         name: Upload tests output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: tests-out
           path: tests
@@ -116,27 +184,26 @@ jobs:
         shell: bash
 
       - name: Upload gcovr report artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: coverage
           path: coverage
 
       - name: Upload data to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
 
   test_macos:
-    needs: smoketest
     name: Test MacOS
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
         os:
-          - macos-10.15
           - macos-11
+          - macos-12
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Fix Checkout
@@ -162,20 +229,20 @@ jobs:
           ./configure
         shell: bash
 
-      - name: Run embedded tests
-        run: make test
+      - name: Run embedded unit tests
+        run: make test.units
         shell: bash
 
-      - if: ${{ always() }}
+      - if: ${{ failure() }}
         name: Move test outputs to an arch specific location
         shell: bash
         run: |
           mkdir -p tests/${{ matrix.os }}
           mv tests/*.out tests/${{ matrix.os }}
 
-      - if: ${{ always() }}
+      - if: ${{ failure() }}
         name: Upload tests output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: tests-out
           path: tests
@@ -194,28 +261,26 @@ jobs:
         shell: bash
 
       # - name: Upload gcovr report artifact
-      #  uses: actions/upload-artifact@v2
+      #  uses: actions/upload-artifact@v3
       #  with:
       #    name: coverage
       #    path: coverage
 
       - name: Upload data to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
 
   test_windows:
-    needs: smoketest
     name: Test Windows
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
         os:
-          - windows-2016
           - windows-2019
           - windows-2022
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Fix Checkout
@@ -237,20 +302,24 @@ jobs:
           ./scripts/hack_fakeautoconf.sh
         shell: bash
 
-      - name: Run embedded tests
-        run: make test
+      - name: Build the project
+        run: make
         shell: bash
 
-      - if: ${{ always() }}
+      - name: Run embedded unit tests
+        run: make test.units
+        shell: bash
+
+      - if: ${{ failure() }}
         name: Move test outputs to an arch specific location
         shell: bash
         run: |
           mkdir -p tests/${{ matrix.os }}
           mv tests/*.out tests/${{ matrix.os }}
 
-      - if: ${{ always() }}
+      - if: ${{ failure() }}
         name: Upload tests output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: tests-out
           path: tests
@@ -261,7 +330,7 @@ jobs:
         shell: bash
 
       - name: Upload data to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
 
   package_dpkg:
     name: Package for Debian/Ubuntu
@@ -278,7 +347,7 @@ jobs:
           - i386
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -312,7 +381,7 @@ jobs:
           make
 
       - name: Upload dpkg
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: packages-dpkg
           path: packages/debian/*.deb
@@ -324,7 +393,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -353,10 +422,99 @@ jobs:
           mv ../rpmbuild ./
 
       - name: Upload rpm
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: packages-rpm
           path: rpmbuild/RPMS/x86_64/*.rpm
+
+  package_ipk:
+    name: Package for OpenWrt
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: mips_24kc
+            sdk_ver: 22.03.3
+            sdk: https://downloads.openwrt.org/releases/22.03.3/targets/lantiq/xrx200/openwrt-sdk-22.03.3-lantiq-xrx200_gcc-11.2.0_musl.Linux-x86_64.tar.xz
+          - name: i386_pentium4
+            sdk_ver: 22.03.3
+            sdk: https://downloads.openwrt.org/releases/22.03.3/targets/x86/generic/openwrt-sdk-22.03.3-x86-generic_gcc-11.2.0_musl.Linux-x86_64.tar.xz
+          - name: x86_64
+            sdk_ver: 22.03.3
+            sdk: https://downloads.openwrt.org/releases/22.03.3/targets/x86/64/openwrt-sdk-22.03.3-x86-64_gcc-11.2.0_musl.Linux-x86_64.tar.xz
+
+    defaults:
+      run:
+        working-directory: openwrt
+
+    steps:
+      - name: Cache entire openwrt dir
+        id: cache-openwrt
+        uses: actions/cache@v3
+        with:
+          path: openwrt
+          key: openwrt-${{ matrix.sdk_ver }}-${{ matrix.name }}
+
+      - name: Get sdk
+        if: steps.cache-openwrt.outputs-cache-hit != 'true'
+        run: |
+          wget -q ${{ matrix.sdk }} -O openwrt-sdk.tar.xz
+          tar xf openwrt-sdk.tar.xz
+          mv openwrt-sdk-* openwrt
+        working-directory: ./
+
+      - name: Checkout n2n
+        uses: actions/checkout@v3
+        with:
+          path: n2n
+          fetch-depth: 0
+
+      - name: Fix Checkout
+        run: |
+          git fetch --force --tags
+        working-directory: n2n
+
+      - name: Copy n2n package definition into openwrt
+        run: |
+          cp -r n2n/packages/openwrt openwrt/package/n2n
+        working-directory: ./
+
+      - name: Configure OpenWrt
+        run: |
+          make defconfig
+
+      - name: Build n2n openwrt packages
+        run: |
+          export N2N_PKG_VERSION=$(../n2n/scripts/version.sh)
+          echo "Build for $N2N_PKG_VERSION"
+          make package/n2n/clean V=s
+          make package/n2n/prepare USE_SOURCE_DIR=$GITHUB_WORKSPACE/n2n V=s
+          make package/n2n/compile V=s
+
+# FIXME: add a way to run the test suite!
+#      - name: Run embedded tests
+#        run: make test
+
+      - name: Save config used
+        if: always()
+        run: |
+          cp openwrt/.config config.${{ matrix.name }}
+        working-directory: ./
+
+      - name: Upload config file used for build
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: openwrt-config
+          path: config.*
+
+      - name: Upload ipk
+        uses: actions/upload-artifact@v3
+        with:
+          name: packages-ipk
+          path: openwrt/bin/packages/*/base/*.ipk
 
   binaries_windows:
     name: Binaries for Windows (x86_64-pc-mingw64)
@@ -365,7 +523,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -385,7 +543,7 @@ jobs:
           make install DESTDIR=binaries/x86_64-pc-mingw64
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: binaries
@@ -403,7 +561,7 @@ jobs:
           - arm64-apple-macos
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -429,7 +587,7 @@ jobs:
 
       - if: ${{ failure() }}
         name: Upload config.log output
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: config-log-${{ matrix.arch }}
           path: config.log
@@ -440,7 +598,7 @@ jobs:
           make install DESTDIR=binaries/${{ matrix.arch }}
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: binaries
@@ -452,7 +610,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -482,7 +640,7 @@ jobs:
           make install DESTDIR=binaries/universal-apple-darwin
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: binaries
@@ -507,7 +665,7 @@ jobs:
           - mipsel-linux-gnu
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -537,7 +695,7 @@ jobs:
           make install DESTDIR=binaries/${{ matrix.arch }}
 
       - name: Upload binary artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: binaries
           path: binaries
@@ -559,6 +717,7 @@ jobs:
     needs:
       - package_dpkg
       - package_rpm
+      - package_ipk
       - binaries_windows
       - binaries_macos
       - binaries_macos_universal
@@ -566,7 +725,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -585,7 +744,7 @@ jobs:
 
       - name: Fetch all Artifacts
         if: steps.get_tagtype.outputs.TAGTYPE == 'tag'
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           path: artifacts
 
@@ -597,3 +756,4 @@ jobs:
           files: |
             artifacts/packages-dpkg/*.deb
             artifacts/packages-rpm/*.rpm
+            artifacts/packages-ipk/*/base/*.pkg

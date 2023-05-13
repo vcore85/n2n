@@ -1,23 +1,16 @@
 
-# NOTE: these are needed by the configure.in inside the packages folder
-N2N_VERSION=@N2N_VERSION@
-
-########
-
 export CC
 export AR
-CC=@CC@
-AR=@AR@
+export CFLAGS
+export LDFLAGS
+export LDLIBS
+export TOOLS_ADDITIONAL
+
+include config.mak
 
 #Ultrasparc64 users experiencing SIGBUS should try the following gcc options
 #(thanks to Robert Gibbon)
 PLATOPTS_SPARC64=-mcpu=ultrasparc -pipe -fomit-frame-pointer -ffast-math -finline-functions -fweb -frename-registers -mapp-regs
-
-export CFLAGS
-export LDFLAGS
-
-CFLAGS=@CFLAGS@ -I ./include
-LDFLAGS=@LDFLAGS@ -L .
 
 OPENSSL_CFLAGS=$(shell pkg-config openssl; echo $$?)
 ifeq ($(OPENSSL_CFLAGS), 0)
@@ -78,22 +71,75 @@ MAN7DIR=$(MANDIR)/man7
 MAN8DIR=$(MANDIR)/man8
 
 N2N_LIB=libn2n.a
-N2N_OBJS=$(patsubst src/%.c, src/%.o, $(wildcard src/*.c))
-N2N_DEPS=$(wildcard include/*.h) $(wildcard src/*.c) Makefile
+N2N_OBJS=\
+	src/aes.o \
+	src/auth.o \
+	src/cc20.o \
+	src/curve25519.o \
+	src/edge_management.o \
+	src/edge_utils.o \
+	src/edge_utils_win32.o \
+	src/header_encryption.o \
+	src/hexdump.o \
+	src/json.o \
+	src/management.o \
+	src/minilzo.o \
+	src/n2n.o \
+	src/n2n_port_mapping.o \
+	src/n2n_regex.o \
+	src/network_traffic_filter.o \
+	src/pearson.o \
+	src/random_numbers.o \
+	src/sn_management.o \
+	src/sn_selection.o \
+	src/sn_utils.o \
+	src/speck.o \
+	src/tf.o \
+	src/transform_aes.o \
+	src/transform_cc20.o \
+	src/transform_lzo.o \
+	src/transform_null.o \
+	src/transform_speck.o \
+	src/transform_tf.o \
+	src/transform_zstd.o \
+	src/tuntap_freebsd.o \
+	src/tuntap_linux.o \
+	src/tuntap_netbsd.o \
+	src/tuntap_osx.o \
+	src/wire.o \
+
+N2N_DEPS=$(wildcard include/*.h) $(wildcard src/*.c) config.mak
 
 # As source files pass the linter, they can be added here (If all the source
 # is passing the linter tests, this can be refactored)
 LINT_CCODE=\
+	include/curve25519.h \
 	include/edge_utils_win32.h \
+	include/header_encryption.h \
+	include/hexdump.h \
 	include/n2n_define.h \
+	include/n2n_wire.h \
+	include/network_traffic_filter.h \
 	include/pearson.h \
+	include/random_numbers.h \
+	include/sn_selection.h \
 	include/speck.h \
+	include/tf.h \
+	src/edge_management.c \
 	src/edge_utils_win32.c \
 	src/example_edge_embed_quick_edge_init.c \
 	src/header_encryption.c \
+	src/management.c \
+	src/management.h \
+	src/sn_management.c \
 	src/sn_selection.c \
+	src/strbuf.h \
 	src/transform_cc20.c \
+	src/transform_null.c \
+	src/tuntap_freebsd.c \
 	src/tuntap_linux.c \
+	src/tuntap_netbsd.c \
+	src/tuntap_osx.c \
 	src/wire.c \
 	tools/tests-auth.c \
 	tools/tests-compress.c \
@@ -102,10 +148,9 @@ LINT_CCODE=\
 	tools/tests-transform.c \
 	tools/tests-wire.c \
 
-export LDLIBS
 
 LDLIBS+=-ln2n
-LDLIBS+=@N2N_LIBS@
+LDLIBS+=$(LDLIBS_EXTRA)
 
 #For OpenSolaris (Solaris too?)
 ifeq ($(CONFIG_TARGET), sunos)
@@ -115,7 +160,7 @@ endif
 ifeq ($(CONFIG_TARGET),mingw)
 CFLAGS+=-I. -I./win32 -DWIN32
 LDLIBS+=$(abspath win32/n2n_win32.a)
-LDLIBS+=-lws2_32 -liphlpapi
+LDLIBS+=-lnetapi32 -lws2_32 -liphlpapi
 N2N_DEPS+=win32/n2n_win32.a
 SUBDIRS+=win32
 endif
@@ -133,6 +178,7 @@ DOCS=edge.8.gz supernode.1.gz n2n.7.gz
 BUILD_DEP:=\
 	autoconf \
 	build-essential \
+	dh-strip-nondeterminism \
 	flake8 \
 	gcovr \
 	libcap-dev \
@@ -146,9 +192,8 @@ SUBDIRS+=tools
 COVERAGEDIR?=coverage
 
 .PHONY: $(SUBDIRS)
-.PHONY: steps build push all clean distclean install test cover gcov build-dep
-.PHONY: lint lint.python lint.ccode lint.shell lint.yaml
 
+.PHONY: all
 all: version $(APPS) $(DOCS) $(SUBDIRS)
 
 # This allows breaking the build if the version.sh script discovers
@@ -164,6 +209,9 @@ tools: $(N2N_LIB)
 win32:
 	$(MAKE) -C $@
 
+win32/edge_rc.o: win32/edge.rc win32/edge.manifest
+	windres win32/edge.rc -O coff -o win32/edge_rc.o
+
 src/edge.o: $(N2N_DEPS)
 src/supernode.o: $(N2N_DEPS)
 src/example_edge_embed_quick_edge_init.o: $(N2N_DEPS)
@@ -175,6 +223,10 @@ src/supernode: $(N2N_LIB)
 src/example_edge_embed_quick_edge_init: $(N2N_LIB)
 src/example_sn_embed: $(N2N_LIB)
 src/example_edge_embed: $(N2N_LIB)
+
+ifeq ($(CONFIG_TARGET), mingw)
+src/edge: win32/edge_rc.o
+endif
 
 %: src/%
 	cp $< $@
@@ -188,9 +240,16 @@ $(N2N_LIB): $(N2N_OBJS)
 
 win32/n2n_win32.a: win32
 
-test: tools
-	scripts/test_harness.sh
+.PHONY: test test.units test.integration
+test: test.units test.integration
 
+test.units: tools
+	scripts/test_harness.sh tests/tests_units.list
+
+test.integration: $(APPS)
+	scripts/test_harness.sh tests/tests_integration.list
+
+.PHONY: lint lint.python lint.ccode lint.shell lint.yaml
 lint: lint.python lint.ccode lint.shell lint.yaml
 
 lint.python:
@@ -209,6 +268,7 @@ lint.yaml:
 # CFLAGS="-fprofile-arcs -ftest-coverage" LDFLAGS="--coverage"
 # and run the desired tests.  Ensure that package gcovr is installed
 # and then run "make cover"
+.PHONY: cover
 cover:
 	mkdir -p $(COVERAGEDIR)
 	gcovr -s --html --html-details --output=$(COVERAGEDIR)/index.html
@@ -217,11 +277,13 @@ cover:
 # Unfortunately, these end up in the wrong directory due to the
 # makefile layout
 # The steps to use this are similar to the "make cover" above
+.PHONY: gcov
 gcov:
 	gcov $(N2N_OBJS)
 	$(MAKE) -C tools gcov
 
 # This is a convinent target to use during development or from a CI/CD system
+.PHONY: build-dep
 build-dep:
 ifeq ($(CONFIG_TARGET),generic)
 	sudo apt install $(BUILD_DEP)
@@ -231,11 +293,14 @@ else
 	echo Not attempting to install dependancies for system $(CONFIG_TARGET)
 endif
 
+.PHONY: clean
 clean:
+	rm -f src/edge.o src/supernode.o src/example_edge_embed.o src/example_edge_embed_quick_edge_init.o src/example_sn_embed.o
 	rm -rf $(N2N_OBJS) $(N2N_LIB) $(APPS) $(DOCS) $(COVERAGEDIR)/ *.dSYM *~
 	rm -f tests/*.out src/*.gcno src/*.gcda
 	for dir in $(SUBDIRS); do $(MAKE) -C $$dir clean; done
 
+.PHONY: distclean
 distclean:
 	rm -f tests/*.out src/*.gcno src/*.gcda src/*.indent src/*.unc-backup*
 	rm -rf autom4te.cache/
@@ -246,6 +311,7 @@ distclean:
 	rm -f packages/rpm/config.log packages/rpm/config.status
 	rm -f $(addprefix src/,$(APPS))
 
+.PHONY: install
 install: edge supernode edge.8.gz supernode.1.gz n2n.7.gz
 	echo "MANDIR=$(MANDIR)"
 	$(MKDIR) $(SBINDIR) $(MAN1DIR) $(MAN7DIR) $(MAN8DIR)
@@ -261,6 +327,7 @@ DOCKER_IMAGE_NAME=ntop/supernode
 DOCKER_IMAGE_VERSION=$N2N_VERSION_SHORT
 N2N_COMMIT_HASH=$(shell scripts/version.sh hash)
 
+.PHONY: default steps build push
 default: steps
 
 steps:

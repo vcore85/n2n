@@ -6,6 +6,7 @@ DEBUG?=-g3
 
 HEADERS=$(wildcard include/*.h)
 CFLAGS+=-I../include
+
 ifeq ($(CONFIG_TARGET),mingw)
 CFLAGS+=-I../win32
 endif
@@ -14,8 +15,8 @@ LDFLAGS+=-L..
 
 N2N_LIB=../libn2n.a
 
-TOOLS=n2n-benchmark n2n-keygen
-TOOLS+=@ADDITIONAL_TOOLS@
+TOOLS=n2n-benchmark n2n-keygen n2n-route n2n-portfwd
+TOOLS+=$(TOOLS_ADDITIONAL)
 
 TESTS=tests-compress tests-elliptic tests-hashing tests-transform
 TESTS+=tests-wire
@@ -24,10 +25,12 @@ TESTS+=tests-auth
 .PHONY: all clean install
 all: $(TOOLS) $(TESTS)
 
-n2n-benchmark.o: $(N2N_LIB) $(HEADERS) ../Makefile Makefile
-n2n-keygen.o: $(N2N_LIB) $(HEADERS) ../Makefile Makefile
+n2n-benchmark.o: $(N2N_LIB) $(HEADERS) ../config.mak
+n2n-keygen.o: $(N2N_LIB) $(HEADERS) ../config.mak
+n2n-route.o: $(N2N_LIB) $(HEADERS) ../config.mak
+n2n-portfwd.o: $(N2N_LIB) $(HEADERS) ../config.mak
 
-n2n-decode: n2n-decode.c $(N2N_LIB) $(HEADERS) ../Makefile Makefile
+n2n-decode: n2n-decode.c $(N2N_LIB) $(HEADERS) ../config.mak
 	$(CC) $(CFLAGS) $< $(LDFLAGS) $(LDLIBS) -lpcap -o $@
 
 # See comments in the topdir Makefile about how to generate coverage
